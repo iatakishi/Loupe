@@ -31,7 +31,7 @@ import requests
 
 BASE = "https://bina.az"
 # Identify yourself honestly. Do not spoof a browser UA to evade detection.
-UA = "HolbertonMLCapstone/0.1 (student research project; contact: your@email.com)"
+UA = "HolbertonMLCapstone/0.1 (student research project; contact: ayyub.mammadov.2005@gmail.com)"
 HEADERS = {"User-Agent": UA, "Accept-Language": "az,en;q=0.8"}
 
 
