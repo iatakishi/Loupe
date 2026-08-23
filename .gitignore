@@ -221,3 +221,8 @@ __marimo__/
 data/*.csv
 *.html
 .scrapy/
+.scrapy_cache/
+next_data.json
+api_response.json
+sample_listing.html
+data/raw/*.jsonl
