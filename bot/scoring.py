@@ -1,37 +1,47 @@
-# - - - - - - - - - - - - - - - - - - - - - 
-# REAL MODEL WILL BE HEREEE!!
-# - - - - - - - - - - - - - - - - - - - - - 
-import random
+import json
+import logging
 
-DISTRICT_BASE_PRICE = {
-    "Nəsimi": 1500,
-    "Yasamal": 1400,
-    "Xətai": 1300,
-    "Səbail": 1800,
-}
-DEFAULT_BASE_PRICE = 1350
+logger = logging.getLogger(__name__)
 
-def score_listing(listing: dict) -> dict:
-    base_price_per_sqm = DISTRICT_BASE_PRICE.get(listing["district"], DEFAULT_BASE_PRICE)
+PREDICTIONS_PATH = "predictions.json"
 
-    # Seed a random generator using the listing's URL, so the "noise"
-    # is always the same for this specific listing, every time it's scored.
-    seeded_random = random.Random(listing["url"])
-    noise = seeded_random.uniform(0.9, 1.1)
+# Loaded once and cached in memory, so we're not re-reading the file on every lookup
+_predictions_cache = None
 
-    predicted_price = base_price_per_sqm * listing["area"] * noise
-    actual_price = listing["price"]
-    bargain_score = (predicted_price - actual_price) / predicted_price * 100
 
-    if bargain_score >= 15:
-        alert_level = "very_cheap"
-    elif bargain_score >= 10:
-        alert_level = "below_market"
-    else:
-        alert_level = "none"
+def load_predictions() -> dict:
+    """Reads predictions.json from disk into a Python dict."""
+    with open(PREDICTIONS_PATH, "r", encoding="utf-8") as f:
+        return json.load(f)
 
-    return {
-        "predicted_price": round(predicted_price, 2),
-        "bargain_score": round(bargain_score, 2),
-        "alert_level": alert_level
-    }
+
+def get_predictions() -> dict:
+    """Returns the cached predictions dict, loading it from disk the first time it's needed."""
+    global _predictions_cache
+    if _predictions_cache is None:
+        _predictions_cache = load_predictions()
+        logger.info(f"Loaded {len(_predictions_cache)} predictions from {PREDICTIONS_PATH}")
+    return _predictions_cache
+
+
+def get_listing_by_url(url: str) -> dict | None:
+    """
+    Looks up a listing by its exact Bina.az URL.
+    Returns the full entry (id, url, predicted_price, actual_price, bargain_score,
+    alert_level, area, rooms, district) if found, or None if this listing
+    isn't in Idrak's dataset.
+    """
+    predictions = get_predictions()
+    return predictions.get(url)
+
+
+if __name__ == "__main__":
+    # Quick manual test — run "python scoring.py" directly to check it works
+    test_url = "https://bina.az/items/6364416"
+    result = get_listing_by_url(test_url)
+    print(f"Lookup for {test_url}:")
+    print(result)
+
+    missing_url = "https://bina.az/items/0000000"
+    print(f"\nLookup for missing listing {missing_url}:")
+    print(get_listing_by_url(missing_url))
