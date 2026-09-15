@@ -53,32 +53,42 @@ async def handle_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
     text = update.message.text.strip()
     chat_id = update.effective_chat.id
 
-    match = BINA_URL_PATTERN.search(text)
-    if not match:
-        await update.message.reply_text(
-            "Zəhmət olmasa düzgün Bina.az elan linki göndərin.\n"
-            "Məsələn: https://bina.az/items/6364416"
-        )
-        return
+    # Count this user even if they never sent /start — any real interaction counts
+    add_subscriber(chat_id)
 
-    listing_id = match.group(1)
-    url = f"https://bina.az/items/{listing_id}"
+    try:
+        match = BINA_URL_PATTERN.search(text)
+        if not match:
+            await update.message.reply_text(
+                "Zəhmət olmasa düzgün Bina.az elan linki göndərin.\n"
+                "Məsələn: https://bina.az/items/6364416"
+            )
+            return
 
-    await update.message.reply_text("⏳ Təhlil edilir...")
+        listing_id = match.group(1)
+        url = f"https://bina.az/items/{listing_id}"
 
-    listing = get_listing_by_url(url)
+        await update.message.reply_text("⏳ Təhlil edilir...")
 
-    if listing is None:
-        logger.info(f"Lookup miss for {url} (user {chat_id})")
-        await update.message.reply_text(
-            "Bu elan hazırkı bazamızda tapılmadı. "
-            "Hazırda yalnız mövcud dataset-dəki elanları yoxlaya bilirik."
-        )
-        return
+        listing = get_listing_by_url(url)
 
-    message = format_alert(listing)
-    await update.message.reply_text(message)
-    logger.info(f"Lookup success for {url} (user {chat_id}), bargain_score={listing['bargain_score']}")
+        if listing is None:
+            logger.info(f"Lookup miss for {url} (user {chat_id})")
+            await update.message.reply_text(
+                "Bu elan hazırkı bazamızda tapılmadı. "
+                "Hazırda yalnız mövcud dataset-dəki elanları yoxlaya bilirik."
+            )
+            return
+
+        message = format_alert(listing)
+        await update.message.reply_text(message)
+        logger.info(f"Lookup success for {url} (user {chat_id}), bargain_score={listing['bargain_score']}")
+
+    except Exception as e:
+        # Covers network hiccups, Telegram API errors, or a blocked/deleted chat —
+        # this one user's request fails gracefully instead of failing silently,
+        # and every other user is completely unaffected.
+        logger.warning(f"Failed to handle message from {chat_id}: {e}")
 
 
 app = ApplicationBuilder().token(TOKEN).build()
